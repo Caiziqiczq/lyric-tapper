@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lyric Tapper</title>
+<meta name="description" content="边听歌边在每句开唱时点一下，得到精确的歌词时间轴。支持导出 LRC、JSON、文本。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#1d1830; --panel:#2a2340; --line:#3d3358; --ink:#f5ecd9; --dim:#a99cc4; --deep:#120e1f;
+  --gold:#f2b632; --red:#d94b3c; --teal:#2f9c95; --done:#8fd3a4;
+  --display:"Chewy","Comic Sans MS",cursive; --body:"Fredoka",ui-rounded,system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;margin:0;padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,5.5vw,44px);margin:0;letter-spacing:.5px}
+h1 span{color:var(--gold)}
+.lead{color:var(--dim);margin:0;line-height:1.55;max-width:66ch}
+.lead b{color:var(--ink)}
+.card{background:var(--panel);border:3px solid var(--deep);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 0 var(--deep)}
+.card h2{margin:0;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,.filebtn{font-family:var(--body);font-weight:600;font-size:16px;border:3px solid var(--deep);border-radius:12px;padding:10px 16px;background:#443a63;color:var(--ink);cursor:pointer;box-shadow:0 3px 0 var(--deep);display:inline-flex;align-items:center;gap:6px}
+button:active,.filebtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--deep)}
+button:focus-visible,.filebtn:focus-within{outline:3px solid var(--gold);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+.filebtn input{position:absolute;opacity:0;width:1px;height:1px}
+.primary{background:var(--teal)}
+.fname{color:var(--dim);font-size:14px;overflow-wrap:anywhere}
+textarea{width:100%;min-height:170px;background:var(--deep);color:var(--ink);border:2px solid var(--line);border-radius:12px;padding:12px;font-family:var(--body);font-size:15px;line-height:1.5;resize:vertical}
+textarea:focus-visible{outline:2px solid var(--gold)}
+.hint{font-size:13px;color:var(--dim);margin:0}
+.clock{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.time{font-variant-numeric:tabular-nums;font-weight:600;font-size:20px;min-width:9ch}
+.bar{flex:1;min-width:160px;height:10px;background:var(--line);border-radius:6px;position:relative;cursor:pointer}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--gold);border-radius:6px}
+.bar em{position:absolute;top:-3px;width:3px;height:16px;background:var(--done);border-radius:2px}
+.now{min-height:108px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.sec{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);font-weight:700;min-height:1.2em}
+.cur{font-family:var(--display);font-size:clamp(24px,4.4vw,36px);line-height:1.15;color:var(--gold);text-wrap:balance}
+.nxt{color:var(--dim);font-size:17px}
+.tap{width:100%;justify-content:center;flex-direction:column;font-family:var(--display);font-weight:400;font-size:clamp(30px,6vw,44px);padding:20px;background:var(--red);letter-spacing:1px}
+.tap small{font-family:var(--body);font-size:14px;font-weight:500;opacity:.85;letter-spacing:0}
+.status{font-size:14px;color:var(--dim);min-height:1.4em}
+.status.ok{color:var(--done)}
+.list{background:var(--panel);border:3px solid var(--deep);border-radius:18px;overflow:hidden}
+.list header{font-size:13px;letter-spacing:.14em;text-transform:uppercase;padding:14px 18px;color:var(--dim);border-bottom:2px solid var(--line);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.line{display:grid;grid-template-columns:6ch 1fr auto;gap:12px;align-items:center;padding:9px 18px;border-bottom:1px solid var(--line);cursor:pointer}
+.line:hover{background:#342b4d}
+.line.active{background:#4a3a2a}
+.line .t{font-variant-numeric:tabular-nums;color:var(--done);font-weight:600}
+.line .t.none{color:#6d6288}
+.line .t.skip{color:var(--red)}
+.line .l{line-height:1.35;overflow-wrap:anywhere}
+.line .s{font-size:12px;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.empty{padding:18px;color:var(--dim)}
+.out{min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tabs button[aria-pressed="true"]{background:var(--gold);color:var(--deep)}
+footer{color:var(--dim);font-size:13px;text-align:center}
+footer a{color:var(--gold)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span>Lyric</span> Tapper · 歌词打点器</h1>
+  <p class="lead">选一首歌、贴上歌词，边听边在<b>每句开口唱的那一刻</b>按一下，就能得到精确到 0.01 秒的歌词时间轴。可以导出 LRC 歌词、JSON 或纯文本，拿去做字幕、做 MV。音频只在你的浏览器里播放，不会上传到任何地方。</p>
+
+  <section class="card" aria-labelledby="h-setup">
+    <h2 id="h-setup">1 · 准备</h2>
+    <div class="row">
+      <label class="filebtn">🎵 选择音频文件<input id="file" type="file" accept="audio/*"></label>
+      <span class="fname" id="fname">还没选歌（mp3 / m4a / wav 都行）</span>
+    </div>
+    <label for="lyrics" class="hint">歌词：一行一句。用 <code>[Verse]</code>、<code>[Chorus]</code> 这样的行标记段落（可选），空行会被忽略。</label>
+    <textarea id="lyrics" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="apply" type="button" class="primary">用这份歌词开始</button>
+      <span class="status" id="setupStatus"></span>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-tap">
+    <h2 id="h-tap">2 · 打点</h2>
+    <div class="clock">
+      <button id="play" type="button">▶ 播放</button>
+      <span class="time" id="time">0:00.0</span>
+      <div class="bar" id="bar" title="点击跳转"><i id="fill"></i></div>
+      <button id="back" type="button" title="倒退 5 秒">−5s</button>
+      <button id="speed" type="button" title="播放速度">1×</button>
+    </div>
+    <div class="now" aria-live="polite">
+      <div class="sec" id="sec"></div>
+      <div class="cur" id="cur"></div>
+      <div class="nxt" id="nxt"></div>
+    </div>
+    <button class="tap" id="tap" type="button">这句开唱！<small>空格键</small></button>
+    <div class="row">
+      <button id="skip" type="button">这句没唱</button>
+      <button id="undo" type="button">撤销上一下</button>
+      <button id="reset" type="button">清空重打</button>
+    </div>
+    <div class="status" id="status">选好歌、贴好歌词后点"用这份歌词开始"</div>
+    <p class="hint">打错了就点下面列表里那一句，会倒回去从那句重新打。跟不上可以切到 0.85× 或 0.7× 慢速，记录的时间照样准确。进度会自动存在这个浏览器里。</p>
+  </section>
+
+  <section class="list" aria-label="歌词时间轴">
+    <header><span>时间轴</span><span id="count">0 / 0</span></header>
+    <div id="rows"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-out">
+    <h2 id="h-out">3 · 导出</h2>
+    <div class="tabs" role="group" aria-label="导出格式">
+      <button type="button" data-fmt="txt" aria-pressed="true">文本（发给 AI）</button>
+      <button type="button" data-fmt="lrc" aria-pressed="false">LRC 歌词</button>
+      <button type="button" data-fmt="json" aria-pressed="false">JSON</button>
+    </div>
+    <textarea id="out" class="out" readonly aria-label="导出内容"></textarea>
+    <div class="row">
+      <button id="copy" type="button" class="primary">复制</button>
+      <button id="download" type="button">下载文件</button>
+      <span class="status" id="copyStatus"></span>
+    </div>
+  </section>
+
+  <footer>Lyric Tapper · 来自 <a href="https://github.com/Caiziqiczq/realest-one-mv">Who's the Realest One? 代码 MV</a> 项目</footer>
+</div>
+
+<audio id="au" preload="auto"></audio>
+
+<script>
+const SAMPLE = `[Verse 1]
+第一句歌词贴在这里
+第二句歌词
+[Chorus]
+副歌第一句
+副歌第二句`;
+const $ = id => document.getElementById(id);
+const au = $('au');
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+
+let LINES = [];          // [{sec, text}]
+let times = [];          // number = seconds, null = skipped, undefined = not yet
+let idx = 0;
+const history = [];
+let songName = '';
+let fmt = 'txt';
+
+// ---------- parsing ----------
+function parse(text) {
+  const out = []; let sec = '';
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim(); if (!line) continue;
+    const m = line.match(/^\[(.+)\]$/);
+    if (m) { sec = m[1]; continue; }
+    out.push({ sec, text: line });
+  }
+  return out;
+}
+const hashOf = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return 'lt:' + (h >>> 0).toString(36); };
+let key = null;
+function persist() { if (key) store.set(key, { times: times.map(t => t === undefined ? -1 : t === null ? -2 : t), idx }); }
+
+// ---------- formatting ----------
+const fmtClock = s => { if (s == null) return ''; const m = Math.floor(s / 60); return m + ':' + (s % 60).toFixed(1).padStart(4, '0'); };
+const lrcStamp = s => { const m = Math.floor(s / 60), r = s - m * 60; return `[${String(m).padStart(2, '0')}:${r.toFixed(2).padStart(5, '0')}]`; };
+function exportText() {
+  if (!LINES.length) return '';
+  if (fmt === 'lrc') {
+    const head = songName ? `[ti:${songName.replace(/\.[^.]+$/, '')}]\n` : '';
+    return head + LINES.map((l, i) => typeof times[i] === 'number' ? lrcStamp(times[i]) + l.text : null).filter(Boolean).join('\n');
+  }
+  if (fmt === 'json') {
+    return JSON.stringify({ song: songName || null, lines: LINES.map((l, i) => ({ section: l.sec || null, text: l.text, start: typeof times[i] === 'number' ? +times[i].toFixed(2) : null, skipped: times[i] === null })) }, null, 2);
+  }
+  return LINES.map((l, i) => `${times[i] === undefined ? '-' : times[i] === null ? 'skip' : times[i].toFixed(2)}\t${l.text}`).join('\n');
+}
+
+// ---------- render ----------
+function setStatus(msg, ok) { const el = $('status'); el.textContent = msg; el.classList.toggle('ok', !!ok); }
+function render() {
+  const rows = $('rows'); rows.innerHTML = '';
+  if (!LINES.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = '贴好歌词后，每一句会出现在这里。'; rows.appendChild(e); }
+  LINES.forEach((ln, i) => {
+    const r = document.createElement('div'); r.className = 'line' + (i === idx ? ' active' : ''); r.tabIndex = 0;
+    const t = document.createElement('span'); t.className = 't';
+    if (times[i] === undefined) { t.textContent = '—'; t.classList.add('none'); }
+    else if (times[i] === null) { t.textContent = '没唱'; t.classList.add('skip'); }
+    else t.textContent = fmtClock(times[i]);
+    const l = document.createElement('span'); l.className = 'l'; l.textContent = ln.text;
+    const s = document.createElement('span'); s.className = 's'; s.textContent = ln.sec;
+    r.append(t, l, s);
+    r.addEventListener('click', () => jumpTo(i));
+    r.addEventListener('keydown', e => { if (e.key === 'Enter') jumpTo(i); });
+    rows.appendChild(r);
+  });
+  const done = idx >= LINES.length && LINES.length > 0;
+  $('sec').textContent = LINES[idx] ? LINES[idx].sec : (done ? '完成' : '');
+  $('cur').textContent = LINES[idx] ? LINES[idx].text : (done ? '全部打完了！到下面导出时间轴' : '还没有歌词');
+  $('nxt').textContent = LINES[idx + 1] ? '下一句：' + LINES[idx + 1].text : '';
+  const ready = LINES.length && au.src;
+  $('tap').disabled = !ready || done; $('skip').disabled = !LINES.length || done; $('undo').disabled = !history.length;
+  $('count').textContent = `${times.filter(t => t !== undefined).length} / ${LINES.length}`;
+  const bar = $('bar'); bar.querySelectorAll('em').forEach(e => e.remove());
+  if (au.duration) times.forEach(t => { if (typeof t === 'number') { const e = document.createElement('em'); e.style.left = (t / au.duration * 100) + '%'; bar.appendChild(e); } });
+  $('out').value = exportText();
+  const act = rows.children[idx]; if (act && !au.paused) act.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+// ---------- actions ----------
+function applyLyrics() {
+  const text = $('lyrics').value;
+  const parsed = parse(text);
+  if (!parsed.length) { $('setupStatus').textContent = '没读到歌词，请先贴上歌词'; return; }
+  LINES = parsed; key = hashOf(songName + '\n' + text); history.length = 0;
+  const saved = store.get(key);
+  if (saved && Array.isArray(saved.times) && saved.times.length === LINES.length) {
+    times = saved.times.map(v => v === -1 ? undefined : v === -2 ? null : v); idx = Math.min(saved.idx ?? 0, LINES.length);
+    setStatus(`已载入这份歌词上次的进度 · ${times.filter(t => t !== undefined).length} / ${LINES.length} 句`, true);
+  } else { times = new Array(LINES.length).fill(undefined); idx = 0; setStatus(au.src ? '准备好了，点 ▶ 播放，开唱时按红色按钮' : '歌词好了，再选一首歌就能开始'); }
+  store.set('lt:lastLyrics', text);
+  $('setupStatus').textContent = `读到 ${LINES.length} 句`;
+  render();
+}
+function jumpTo(i) {
+  idx = i;
+  let ref = null; for (let k = i; k >= 0; k--) if (typeof times[k] === 'number') { ref = times[k]; break; }
+  if (au.src) au.currentTime = Math.max(0, (ref ?? 0) - 3);
+  for (let k = i; k < LINES.length; k++) times[k] = undefined;
+  history.length = 0; render(); persist();
+  if (au.src && au.paused) togglePlay();
+}
+function tap() {
+  if (idx >= LINES.length || !au.src) return;
+  if (au.paused) { togglePlay(); return; }
+  history.push(idx); times[idx] = Math.max(0, au.currentTime - 0.08); idx++; render(); persist();
+  if (idx >= LINES.length) setStatus('全部打完了！到下面导出时间轴', true);
+}
+function skip() { if (idx >= LINES.length) return; history.push(idx); times[idx] = null; idx++; render(); persist(); }
+function undo() { const i = history.pop(); if (i === undefined) return; times[i] = undefined; idx = i; render(); persist(); }
+function reset() { times = new Array(LINES.length).fill(undefined); idx = 0; history.length = 0; if (au.src) au.currentTime = 0; render(); persist(); setStatus('已清空，重新开始打点'); }
+function togglePlay() {
+  if (!au.src) { setStatus('先选一首歌'); return; }
+  if (au.paused) au.play().catch(() => setStatus('浏览器没让播放，再点一次 ▶ 播放')); else au.pause();
+}
+
+// ---------- wiring ----------
+$('file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (au.src) URL.revokeObjectURL(au.src);
+  au.src = URL.createObjectURL(f); songName = f.name; $('fname').textContent = f.name;
+  if (LINES.length) applyLyrics(); else render();
+});
+$('apply').onclick = applyLyrics;
+au.addEventListener('play', () => $('play').textContent = '❚❚ 暂停');
+au.addEventListener('pause', () => $('play').textContent = '▶ 播放');
+au.addEventListener('loadedmetadata', render);
+(function tick() { $('time').textContent = fmtClock(au.currentTime || 0); if (au.duration) $('fill').style.width = (au.currentTime / au.duration * 100) + '%'; requestAnimationFrame(tick); })();
+$('play').onclick = togglePlay; $('tap').onclick = tap; $('skip').onclick = skip; $('undo').onclick = undo; $('reset').onclick = reset;
+$('back').onclick = () => { if (au.src) au.currentTime = Math.max(0, au.currentTime - 5); };
+const speeds = [1, .85, .7]; let si = 0;
+$('speed').onclick = () => { si = (si + 1) % speeds.length; au.playbackRate = speeds[si]; $('speed').textContent = speeds[si] + '×'; };
+$('bar').onclick = e => { const r = $('bar').getBoundingClientRect(); if (au.duration) au.currentTime = (e.clientX - r.left) / r.width * au.duration; };
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)) { e.preventDefault(); tap(); }
+});
+document.querySelectorAll('[data-fmt]').forEach(b => b.addEventListener('click', () => {
+  fmt = b.dataset.fmt; document.querySelectorAll('[data-fmt]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render();
+}));
+$('copy').onclick = async () => {
+  const txt = $('out').value; if (!txt) { $('copyStatus').textContent = '还没有可导出的内容'; return; }
+  try { await navigator.clipboard.writeText(txt); $('copyStatus').textContent = '已复制'; }
+  catch (e) { $('out').select(); $('copyStatus').textContent = '自动复制不行，已帮你全选，请按 Cmd/Ctrl + C'; }
+};
+$('download').onclick = () => {
+  const txt = $('out').value; if (!txt) { $('copyStatus').textContent = '还没有可导出的内容'; return; }
+  const base = (songName || 'lyrics').replace(/\.[^.]+$/, '');
+  const ext = { txt: 'txt', lrc: 'lrc', json: 'json' }[fmt];
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+  a.download = `${base}.${ext}`; document.body.appendChild(a); a.click(); a.remove();
+};
+$('lyrics').value = store.get('lt:lastLyrics') || SAMPLE;
+render();
+</script>
+</body>
+</html>
